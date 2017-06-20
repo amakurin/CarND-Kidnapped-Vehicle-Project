@@ -24,7 +24,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	num_particles = 50;
+	num_particles = 100;
 	particles.resize(num_particles);
 
 	double std_x = std[0]; 
@@ -194,13 +194,27 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		double denom_y = 2 * std_y * std_y;
 		for (int j =0; j<obsize; ++j){
 			int plm_index = p_observations[j].id;
+			double x; 
+			double y;
     		if (plm_index > -1) {
 				LandmarkObs plm = p_predicted[plm_index];
-				double dev_x = p_observations[j].x - plm.x; 
-				double dev_y = p_observations[j].y - plm.y; 
-				// multiply by value from multivariate Gaussian
-				p.weight *= exp(-(dev_x*dev_x/denom_x) - (dev_y*dev_y/denom_y))/denom;
+				x = p_predicted[plm_index].x; 
+				y = p_predicted[plm_index].y; 
+			} else { // if no associated landmark found
+				double norm = dist(0, 0, p_observations[j].x, p_observations[j].y);
+				double scale = sensor_range;
+				if (fabs(norm)>0.001){
+					scale = scale / norm;
+				}
+				double range_x = p_observations[j].x * scale;
+				double range_y = p_observations[j].y * scale;
+				x = p.x + range_x * cos_theta - range_y * sin_theta;
+				y = p.y + range_x * sin_theta + range_y * cos_theta;
 			}
+			double dev_x = p_observations[j].x - x; 
+			double dev_y = p_observations[j].y - y; 
+			// multiply by value from multivariate Gaussian
+			p.weight *= exp(-(dev_x*dev_x/denom_x) - (dev_y*dev_y/denom_y))/denom;
 		}
 		// update particle
 		particles[i] = p;
@@ -213,10 +227,13 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 	default_random_engine gen;
+
+	// NOTE: There is no need for normalize weights with discrete_distribution (see docs) 
 	// collect current weights
 	weights.resize(num_particles, 0.);
 	for (int i=0; i<num_particles; ++i){
 		weights[i] = particles[i].weight;
+		weights_normalizer += particles[i].weight;
 	}
 	// create new vector
 	std::vector<Particle> new_particles(num_particles);
