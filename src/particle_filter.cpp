@@ -233,7 +233,6 @@ void ParticleFilter::resample() {
 	weights.resize(num_particles, 0.);
 	for (int i=0; i<num_particles; ++i){
 		weights[i] = particles[i].weight;
-		weights_normalizer += particles[i].weight;
 	}
 	// create new vector
 	std::vector<Particle> new_particles(num_particles);
